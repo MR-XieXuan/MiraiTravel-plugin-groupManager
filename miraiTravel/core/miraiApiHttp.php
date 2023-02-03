@@ -1,0 +1,390 @@
+<?php
+
+namespace MiraiTravel\MiraiApi;
+
+use MiraiTravel\LogSystem\LogSystem;
+
+use function MiraiTravel\HttpAdapter\http_adapter;
+use function MiraiTravel\WebhookAdapter\webhook_adapter;
+
+/**
+ * adapter_manager 适配器函数
+ * @brief 适配器函数
+ * @param string $type 适配器类型 
+ * @property $type "auto" -> webhook > http ;
+ */
+function adapter_manager($type, $command, $content, $other = array())
+{
+    $logSystem = new LogSystem("MiraiTravel", "System");
+    switch ($type) {
+        case "auto":
+        case "webhook":
+            $logSystem->write_log("miraiApiHttp", "adaptar_manager", "[ " . json_encode($type) . " | " . json_encode($command) . " | " . json_encode($content) . " | " . json_encode($other) . " ][now webhook]");
+            $flag = webhook_adapter($command, $content);
+            if ($flag !== false) {
+                return $flag;
+            }
+        case "http":
+            $logSystem->write_log("miraiApiHttp", "adaptar_manager", "[ " . json_encode($type) . " | " . json_encode($command) . " | " . json_encode($content) . " | " . json_encode($other) . " ][now http]");
+            $flag = http_adapter($other['httpApi'] ?? $other['qqbot']->get_http_api(), $command, $content, $other);
+            if ($flag !== false) {
+                return $flag;
+            }
+        default:
+            return false;
+    }
+}
+
+/**
+ * <H1> 
+ * 以下的是认证与会话 >>>
+ */
+function verify($verifyKey, $other = array())
+{
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return http_adapter(
+        $other['httpApi'] ?? $other['qqbot']->get_http_api(),
+        $funcName,
+        array("verifyKey" => $verifyKey)
+    );
+}
+
+function bind($sessionKey, $qq, $other = array())
+{
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return http_adapter(
+        $other['httpApi'] ?? $other['qqbot']->get_http_api(),
+        $funcName,
+        array(
+            "sessionKey" => $sessionKey,
+            "qq" => $qq
+        )
+    );
+}
+
+/**
+ * <H1> 
+ * 以下的是消息发送与撤回函数 >>>
+ */
+
+/**
+ * send_friend_message 
+ * 发送好友消息
+ * @param string    $sessionKey    已经激活的Session
+ * @param int       $target        发送消息目标好友的QQ号
+ * @param int       $qq            target与qq中需要有一个参数不为空，当target不为空时qq将被忽略，同target
+ * @param int       $quote         引用一条消息的messageId进行回复
+ * @param array     $messageChain  消息链，是一个消息对象构成的数组
+ */
+function send_friend_message($sessionKey = "", $target = null, $qq = null, $quote = null, $messageChain, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content["sessionKey"] = (string)$sessionKey;
+    }
+    if (!empty($target)) {
+        $content["target"] = (int)$target;
+    }
+    if (!empty($qq)) {
+        $content["qq"] = (int)$qq;
+    }
+    if (!empty($quote)) {
+        $content["quote"] = (int)$quote;
+    }
+    $content["messageChain"] = (array)$messageChain;
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content, $other);
+}
+
+/**
+ * send_group_message
+ * 发送群消息
+ * @param string    $sessionKey    已经激活的Session
+ * @param int       $target        发送消息目标群的群号
+ * @param int       $group         target与group中需要有一个参数不为空，当target不为空时group将被忽略，同target
+ * @param int       $quote         引用一条消息的messageId进行回复
+ * @param array     $messageChain  消息链，是一个消息对象构成的数组    
+ */
+function send_group_message($sessionKey = "", $target = null, $group = null, $quote = null, $messageChain, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content["sessionKey"] = (string)$sessionKey;
+    }
+    if (!empty($target)) {
+        $content["target"] = (int)$target;
+    }
+    if (!empty($group)) {
+        $content["group"] = (int)$group;
+    }
+    if (!empty($quote)) {
+        $content["quote"] = (int)$quote;
+    }
+    $content["messageChain"] = (array)$messageChain;
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+
+    return adapter_manager("auto", $funcName, $content, $other);
+}
+
+/**
+ * send_temp_message
+ * 发送临时会话消息
+ * @param string    $sessionKey    已经激活的Session
+ * @param int       $qq            临时会话对象QQ号
+ * @param int       $group         临时会话群号
+ * @param int       $quote         引用一条消息的messageId进行回复
+ * @param array     $messageChain  消息链，是一个消息对象构成的数组  
+ * 
+ * @return 
+ */
+function send_temp_message($sessionKey = "", $qq, $group, $quote = null, $messageChain, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content["sessionKey"] = (string)$sessionKey;
+    }
+    $content["qq"] = (int)$qq;
+    $content["group"] = (int)$group;
+    if (!empty($quote)) {
+        $content["quote"] = (int)$quote;
+    }
+    $content["messageChain"] = (array)$messageChain;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * send_nudge
+ * 发送头像戳一戳消息
+ */
+function send_nudge()
+{
+}
+
+/**
+ * recall
+ * 撤回消息
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   string  $messageId  需要撤回消息的messageId
+ * @param   int     $target     好友或群id
+ */
+function recall($sessionKey = "", $messageId, $target, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content["sessionKey"] = (string)$sessionKey;
+    }
+    $content["messageId"] = (string)$messageId;
+    $content['target'] = (int)$target;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * <H1> 
+ * 以下的是账号管理函数 >>>
+ */
+
+/**
+ * delete_friend
+ * 删除好友
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     删除好友的QQ号码
+ */
+function delete_friend($sessionKey = "", $target)
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content["sessionKey"] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * <H1> 
+ * 以下的是群管理函数 >>>
+ */
+
+/**
+ * mute
+ * 禁言群成员
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     指定群的群号
+ * @param   int     $memberId   指定群员QQ号
+ * @param   int     $time       禁言时长，单位为秒，最多30天，默认为0
+ */
+function mute($sessionKey = "", $target, $memberId, $time = 1800, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+    $content['memberId'] = (int)$memberId;
+    if (!empty($time)) {
+        $content['time'] = (int)$time;
+    }
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content, $other);
+}
+
+/**
+ * unmute
+ * 解除群成员禁言
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     指定群的群号
+ * @param   int     $memberId   指定群员QQ号
+ */
+function unmute($sessionKey = "", $target, $memberId)
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+    $content['memberId'] = (int)$memberId;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * kick
+ * 移除群成员
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     指定群的群号
+ * @param   int     $memberId   指定群员QQ号
+ * @param   string  $msg        信息
+ */
+function kick($sessionKey = "", $target, $memberId, $msg = "")
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+    $content['memberId'] = (int)$memberId;
+    if (!empty($time)) {
+        $content['msg'] = (string)$msg;
+    }
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * quit
+ * 使Bot退出群聊
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     指定群的群号
+ */
+function quit($sessionKey = "", $target)
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * mute_all
+ * 全体禁言
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     指定群的群号
+ */
+function mute_all($sessionKey = "", $target, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content, $other);
+}
+
+/**
+ * mute_all
+ * 解除全体禁言
+ * @param   string  $sessionKey 已经激活的Session
+ * @param   int     $target     指定群的群号
+ */
+function unmute_all($sessionKey = "", $target, $other = array())
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['target'] = (int)$target;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content, $other);
+}
+
+/**
+ * set_essence
+ * 设置群精华消息
+ */
+function set_essence()
+{
+}
+
+
+/**
+ * <H1> 
+ * 以下的是事件处理函数 >>>
+ */
+
+/**
+ * resp__new_friend_request_event
+ * 添加好友申请
+ * @param string    $sessionKey 	已经激活的Session
+ * @param int	    $eventId	    响应申请事件的标识
+ * @param int	    $fromId	        事件对应申请人QQ号
+ * @param int	    $groupId	    事件对应申请人的群号，可能为0
+ * @param int	    $operate	    响应的操作类型 0 同意 1 拒绝 2 拒绝添加好友并添加黑名单，不再接收该用户的好友申请
+ * @param string    $message	    回复的信息
+ */
+function resp__new_friend_request_event($sessionKey, $eventId, $fromId, $groupId, $operate, $message)
+{
+    $content = array();
+    if (!empty($sessionKey)) {
+        $content['sessionKey'] = (string)$sessionKey;
+    }
+    $content['eventId'] = (int)$eventId;
+    $content['fromId'] = (int)$fromId;
+    $content['groupId'] = (int)$groupId;
+    $content['eventId'] = (int)$eventId;
+    $content['operate'] = (int)$operate;
+    $content['message'] = (string)$message;
+
+    $funcName = basename(str_replace('\\', '/', __FUNCTION__));
+    return adapter_manager("auto", $funcName, $content);
+}
+
+/**
+ * resp__member_join_request_event
+ * 用户入群申请
+ */
+function resp__member_join_request_event()
+{
+}
+
+/**
+ * resp__bot_invited_join_group_request_event
+ * Bot被邀请入群申请
+ */
+function resp__bot_invited_join_group_request_event()
+{
+}

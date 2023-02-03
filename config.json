@@ -1,0 +1,11 @@
+{
+    "information": "一个用来方便群管理的插件",
+    "version": "V0.1.0",
+    "author": "Mr-XieXuan",
+    "name": "groupManager",
+    "MTVersion": "V1.0.1",
+    "depend": {
+        "easyMirai": "V0.1.0",
+        "webhook" : "V0.1.0"
+    }
+}
